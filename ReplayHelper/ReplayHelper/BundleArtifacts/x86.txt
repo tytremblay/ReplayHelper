@@ -1,0 +1,2 @@
+MainPackage=C:\Users\Ty\Documents\GitHub\ReplayHelper\ReplayHelper\ReplayHelper\bin\x86\Release\ReplayHelper_0.1.23.0_x86.appx
+SymbolPackage=C:\Users\Ty\Desktop\ReplayHelper\ReplayHelper_0.1.23.0_Test\ReplayHelper_0.1.23.0_x86.appxsym

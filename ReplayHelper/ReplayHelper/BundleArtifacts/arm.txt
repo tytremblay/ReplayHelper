@@ -1,0 +1,4 @@
+MainPackage=C:\Users\Ty\Documents\GitHub\ReplayHelper\ReplayHelper\ReplayHelper\bin\ARM\Release\ReplayHelper_0.1.23.0_ARM.appx
+SymbolPackage=C:\Users\Ty\Desktop\ReplayHelper\ReplayHelper_0.1.23.0_Test\ReplayHelper_0.1.23.0_ARM.appxsym
+ResourcePack=C:\Users\Ty\Documents\GitHub\ReplayHelper\ReplayHelper\ReplayHelper\bin\ARM\Release\ReplayHelper_0.1.23.0_scale-100.appx
+ResourcePack=C:\Users\Ty\Documents\GitHub\ReplayHelper\ReplayHelper\ReplayHelper\bin\ARM\Release\ReplayHelper_0.1.23.0_scale-400.appx
