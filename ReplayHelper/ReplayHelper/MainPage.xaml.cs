@@ -78,6 +78,7 @@ namespace ReplayHelper
 
         private DispatcherTimer stopWatch;
         private double numSeconds = 0.0;
+        private double prevPlaybackRate = 1.0;
 
         private int numActiveContacts = 0;
         private int prevNumActiveContacts = 0;
@@ -199,7 +200,7 @@ namespace ReplayHelper
             }
         }
 
-        private async void Application_Suspending(object sender, SuspendingEventArgs e)
+        private void Application_Suspending(object sender, SuspendingEventArgs e)
         {
             // Handle global application events only if this page is active
             if (Frame.CurrentSourcePageType == typeof(MainPage))
@@ -208,138 +209,28 @@ namespace ReplayHelper
 
                 UnregisterOrientationEventHandlers();
 
-                _systemMediaControls.PropertyChanged -= SystemMediaControls_PropertyChanged;
-
-                await CleanupCameraAsync();
-
                 deferral.Complete();
             }
         }
 
-        private async void Application_Resuming(object sender, object o)
+        private void Application_Resuming(object sender, object o)
         {
             // Handle global application events only if this page is active
             if (Frame.CurrentSourcePageType == typeof(MainPage))
             {
                 RegisterOrientationEventHandlers();
-
-                _systemMediaControls.PropertyChanged += SystemMediaControls_PropertyChanged;
-
-                await FindAllCamerasAsync();
-                await InitializeCameraAsync(cameraDevice);
             }
         }
 
-        protected override async void OnNavigatedTo(NavigationEventArgs e)
+        protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             RegisterOrientationEventHandlers();
-
-            _systemMediaControls.PropertyChanged += SystemMediaControls_PropertyChanged;
-
-            await FindAllCamerasAsync();
-            await InitializeCameraAsync(cameraDevice);
         }
 
-        protected override async void OnNavigatingFrom(NavigatingCancelEventArgs e)
+        protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
         {
             UnregisterOrientationEventHandlers();
 
-            _systemMediaControls.PropertyChanged -= SystemMediaControls_PropertyChanged;
-
-            await CleanupCameraAsync();
-
-        }
-
-        private async void SystemMediaControls_PropertyChanged(SystemMediaTransportControls sender, SystemMediaTransportControlsPropertyChangedEventArgs args)
-        {
-            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () =>
-            {
-                // Only handle this event if this page is currently being displayed
-                if (args.Property == SystemMediaTransportControlsProperty.SoundLevel && Frame.CurrentSourcePageType == typeof(MainPage))
-                {
-                    // Check to see if the app is being muted. If so, it is being minimized.
-                    // Otherwise if it is not initialized, it is being brought into focus.
-                    if (sender.SoundLevel == SoundLevel.Muted)
-                    {
-                        await CleanupCameraAsync();
-                    }
-                    else if (!_isInitialized)
-                    {
-                        await FindAllCamerasAsync();
-                        await InitializeCameraAsync(cameraDevice);
-                    }
-                }
-            });
-        }
-
-        private async Task FindAllCamerasAsync()
-        {
-            // Get available devices for capturing pictures
-            allCameras = await DeviceInformation.FindAllAsync(DeviceClass.VideoCapture);
-
-            // Get the desired camera by panel
-            cameraDevice =
-                allCameras.FirstOrDefault(x => x.EnclosureLocation != null &&
-                x.EnclosureLocation.Panel == Windows.Devices.Enumeration.Panel.Back);
-
-            // If there is no camera on the specified panel, get any camera
-            cameraDevice = cameraDevice ?? allCameras.FirstOrDefault();
-
-
-            if (cameraDevice == null)
-            {
-                ShowMessageToUser("No camera device found.");
-                return;
-            }
-        }
-
-        private async Task InitializeCameraAsync(DeviceInformation cameraToUse)
-        {
-            // Create MediaCapture and its settings
-            _mediaCapture = new MediaCapture();
-
-            // Register for a notification when video recording has reached the maximum time and when something goes wrong
-            _mediaCapture.RecordLimitationExceeded += MediaCapture_RecordLimitationExceeded;
-
-            var mediaInitSettings = new MediaCaptureInitializationSettings { VideoDeviceId = cameraToUse.Id };
-
-            // Initialize MediaCapture
-            try
-            {
-                await _mediaCapture.InitializeAsync(mediaInitSettings);
-                _isInitialized = true;
-            }
-            catch (UnauthorizedAccessException)
-            {
-                ShowMessageToUser("The app was denied access to the camera");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine("Exception when initializing MediaCapture with {0}: {1}", cameraToUse.Id, ex.ToString());
-            }
-
-            // If initialization succeeded, start the preview
-            if (_isInitialized)
-            {
-                // Figure out where the camera is located
-                if (cameraToUse.EnclosureLocation == null || cameraToUse.EnclosureLocation.Panel == Windows.Devices.Enumeration.Panel.Unknown)
-                {
-                    // No information on the location of the camera, assume it's an external camera, not integrated on the device
-                    _externalCamera = true;
-                }
-                else
-                {
-                    // Camera is fixed on the device
-                    _externalCamera = false;
-
-                    // Only mirror the preview if the camera is on the front panel
-                    _mirroringPreview = (cameraToUse.EnclosureLocation.Panel == Windows.Devices.Enumeration.Panel.Front);
-                }
-
-                //await StartPreviewAsync();
-
-                //UpdateCaptureControls();
-            }
         }
 
         private async void ShowMessageToUser(string message)
@@ -349,229 +240,6 @@ namespace ReplayHelper
             var result = await dialog.ShowAsync();
         }
 
-        private async Task StartRecordingAsync()
-        {
-            try
-            {
-                // Create storage file in Pictures Library
-                var videoFile = await KnownFolders.VideosLibrary.CreateFileAsync("Recording.mp4", CreationCollisionOption.GenerateUniqueName);
-
-                var encodingProfile = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.Auto);
-
-                // Calculate rotation angle, taking mirroring into account if necessary
-                var rotationAngle = 360 - ConvertDeviceOrientationToDegrees(GetCameraOrientation());
-                encodingProfile.Video.Properties.Add(RotationKey, PropertyValue.CreateInt32(rotationAngle));
-
-                Debug.WriteLine("Starting recording...");
-
-                await _mediaCapture.StartRecordToStorageFileAsync(encodingProfile, videoFile);
-                _isRecording = true;
-
-                latestRecordingFile = videoFile;
-
-                recordButton.Foreground = new SolidColorBrush(Colors.Red);
-
-                recordHelpText.Text = "Stop";
-
-                Debug.WriteLine("Started recording!");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine("Exception when starting video recording: {0}", ex.ToString());
-            }
-        }
-
-        private async Task StopRecordingAsync()
-        {
-            try
-            {
-                Debug.WriteLine("Stopping recording...");
-
-                _isRecording = false;
-                await _mediaCapture.StopRecordAsync();
-
-                recordButton.Foreground = new SolidColorBrush(Colors.White);
-                recordHelpText.Text = "Record";
-
-                Debug.WriteLine("Stopped recording!");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine("Exception when stopping video recording: {0}", ex.ToString());
-            }
-        }
-
-        private async void MediaCapture_RecordLimitationExceeded(MediaCapture sender)
-        {
-            await StopRecordingAsync();
-        }
-
-        private async Task TakePhotoAsync()
-        {
-            var stream = new InMemoryRandomAccessStream();
-
-            try
-            {
-                Debug.WriteLine("Taking photo...");
-                await _mediaCapture.CapturePhotoToStreamAsync(ImageEncodingProperties.CreateJpeg(), stream);
-                Debug.WriteLine("Photo taken!");
-
-                var photoOrientation = ConvertOrientationToPhotoOrientation(GetCameraOrientation());
-                await ReencodeAndSavePhotoAsync(stream, "photo.jpg", photoOrientation);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine("Exception when taking a photo: {0}", ex.ToString());
-            }
-
-        }
-
-        private SimpleOrientation GetCameraOrientation()
-        {
-            if (_externalCamera)
-            {
-                // Cameras that are not attached to the device do not rotate along with it, so apply no rotation
-                return SimpleOrientation.NotRotated;
-            }
-
-            // If the preview is being mirrored for a front-facing camera, then the rotation should be inverted
-            if (_mirroringPreview)
-            {
-                // This only affects the 90 and 270 degree cases, because rotating 0 and 180 degrees is the same clockwise and counter-clockwise
-                switch (_deviceOrientation)
-                {
-                    case SimpleOrientation.Rotated90DegreesCounterclockwise:
-                        return SimpleOrientation.Rotated270DegreesCounterclockwise;
-                    case SimpleOrientation.Rotated270DegreesCounterclockwise:
-                        return SimpleOrientation.Rotated90DegreesCounterclockwise;
-                }
-            }
-
-            return _deviceOrientation;
-        }
-
-        private static PhotoOrientation ConvertOrientationToPhotoOrientation(SimpleOrientation orientation)
-        {
-            switch (orientation)
-            {
-                case SimpleOrientation.Rotated90DegreesCounterclockwise:
-                    return PhotoOrientation.Rotate90;
-                case SimpleOrientation.Rotated180DegreesCounterclockwise:
-                    return PhotoOrientation.Rotate180;
-                case SimpleOrientation.Rotated270DegreesCounterclockwise:
-                    return PhotoOrientation.Rotate270;
-                case SimpleOrientation.NotRotated:
-                default:
-                    return PhotoOrientation.Normal;
-            }
-        }
-
-        private static async Task ReencodeAndSavePhotoAsync(IRandomAccessStream stream, string filename, PhotoOrientation photoOrientation)
-        {
-            using (var inputStream = stream)
-            {
-                var decoder = await BitmapDecoder.CreateAsync(inputStream);
-
-                var file = await KnownFolders.PicturesLibrary.CreateFileAsync(filename, CreationCollisionOption.GenerateUniqueName);
-
-                using (var outputStream = await file.OpenAsync(FileAccessMode.ReadWrite))
-                {
-                    var encoder = await BitmapEncoder.CreateForTranscodingAsync(outputStream, decoder);
-
-                    var properties = new BitmapPropertySet { { "System.Photo.Orientation", new BitmapTypedValue(photoOrientation, PropertyType.UInt16) } };
-
-                    await encoder.BitmapProperties.SetPropertiesAsync(properties);
-                    await encoder.FlushAsync();
-                }
-            }
-        }
-
-        private async Task StartPreviewAsync()
-        {
-            // Prevent the device from sleeping while the preview is running
-            appDisplayRequest.RequestActive();
-
-            // Set the preview source in the UI and mirror it if necessary
-            PreviewControl.Source = _mediaCapture;
-            PreviewControl.FlowDirection = _mirroringPreview ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
-
-            // Start the preview
-            try
-            {
-                await _mediaCapture.StartPreviewAsync();
-                _isPreviewing = true;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine("Exception when starting the preview: {0}", ex.ToString());
-            }
-
-            // Initialize the preview to the current orientation
-            if (_isPreviewing)
-            {
-                await SetPreviewRotationAsync();
-            }
-        }
-
-        private async Task StopPreviewAsync()
-        {
-            // Stop the preview
-            try
-            {
-                _isPreviewing = false;
-                await _mediaCapture.StopPreviewAsync();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine("Exception when stopping the preview: {0}", ex.ToString());
-            }
-
-            // Use the dispatcher because this method is sometimes called from non-UI threads
-            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
-            {
-                // Cleanup the UI
-                PreviewControl.Source = null;
-
-                // Allow the device screen to sleep now that the preview is stopped
-                appDisplayRequest.RequestRelease();
-            });
-        }
-
-        private async Task CleanupCameraAsync()
-        {
-            Debug.WriteLine("CleanupCameraAsync");
-
-            if (_isInitialized)
-            {
-                // If a recording is in progress during cleanup, stop it to save the recording
-                if (_isRecording)
-                {
-                    await StopRecordingAsync();
-                }
-
-                if (_isPreviewing)
-                {
-                    // The call to MediaCapture.Dispose() will automatically stop the preview
-                    // but manually stopping the preview is good practice
-                    await StopPreviewAsync();
-                }
-
-                _isInitialized = false;
-            }
-
-            if (_mediaCapture != null)
-            {
-                _mediaCapture.RecordLimitationExceeded -= MediaCapture_RecordLimitationExceeded;
-                _mediaCapture.Failed -= MediaCapture_Failed;
-                _mediaCapture.Dispose();
-                _mediaCapture = null;
-            }
-        }
-
-        private async void MediaCapture_Failed(MediaCapture sender, MediaCaptureFailedEventArgs errorEventArgs)
-        {
-            await CleanupCameraAsync();
-        }
 
         private void RegisterOrientationEventHandlers()
         {
@@ -606,14 +274,9 @@ namespace ReplayHelper
             }
         }
 
-        private async void DisplayInformation_OrientationChanged(DisplayInformation sender, object args)
+        private void DisplayInformation_OrientationChanged(DisplayInformation sender, object args)
         {
             _displayOrientation = sender.CurrentOrientation;
-
-            if (_isPreviewing)
-            {
-                await SetPreviewRotationAsync();
-            }
 
         }
 
@@ -649,30 +312,7 @@ namespace ReplayHelper
             }
         }
 
-        private async Task SetPreviewRotationAsync()
-        {
-            // Only need to update the orientation if the camera is mounted on the device
-            if (_externalCamera) return;
-
-            // Populate orientation variables with the current state
-            _displayOrientation = _displayInformation.CurrentOrientation;
-
-            // Calculate which way and how far to rotate the preview
-            int rotationDegrees = ConvertDisplayOrientationToDegrees(_displayOrientation);
-
-            // The rotation direction needs to be inverted if the preview is being mirrored
-            if (_mirroringPreview)
-            {
-                rotationDegrees = (360 - rotationDegrees) % 360;
-            }
-
-            // Add rotation metadata to the preview stream to make sure the aspect ratio / dimensions match when rendering and getting preview frames
-            var props = _mediaCapture.VideoDeviceController.GetMediaStreamProperties(MediaStreamType.VideoPreview);
-            props.Properties.Add(RotationKey, rotationDegrees);
-            await _mediaCapture.SetEncodingPropertiesAsync(MediaStreamType.VideoPreview, props, null);
-
-        }
-
+        
         async void SystemControls_ButtonPressed(SystemMediaTransportControls sender, SystemMediaTransportControlsButtonPressedEventArgs args)
         {
             switch (args.Button)
@@ -694,7 +334,7 @@ namespace ReplayHelper
             }
         }
 
-        private async void openButton_Click(object sender, RoutedEventArgs e)
+        private void openButton_Click(object sender, RoutedEventArgs e)
         {
             MenuFlyout m = new MenuFlyout();
 
@@ -746,6 +386,7 @@ namespace ReplayHelper
             folderPicker.FileTypeFilter.Add(".mp4");
             folderPicker.FileTypeFilter.Add(".wma");
             folderPicker.FileTypeFilter.Add(".mp3");
+            folderPicker.FileTypeFilter.Add(".mov");
 
             StorageFolder folder = await folderPicker.PickSingleFolderAsync();
 
@@ -850,9 +491,6 @@ namespace ReplayHelper
 
             if (recordHelpText.Text == "Stop")
             {
-                await StopRecordingAsync();
-
-                await StopPreviewAsync();
 
                 if (latestRecordingFile != null)
                 {
@@ -865,11 +503,7 @@ namespace ReplayHelper
             }
             else
             {
-                await StartPreviewAsync();
-
-                await StartRecordingAsync();
                 clearShapeCanvas();
-
             }
 
         }
@@ -911,13 +545,10 @@ namespace ReplayHelper
             }
         }
 
-        private async void Mn_Tapped(object sender, TappedRoutedEventArgs e)
+        private void Mn_Tapped(object sender, TappedRoutedEventArgs e)
         {
             MenuFlyoutItem mfi = sender as MenuFlyoutItem;
-
-            await StopRecordingAsync();
             cameraDevice = allCameras.FirstOrDefault(x => x.Name == mfi.Text);
-            await InitializeCameraAsync(cameraDevice);
         }
         
 
@@ -937,6 +568,8 @@ namespace ReplayHelper
             {
                 mediaPlayerScrubStartTime = mediaPlayer.Position;
                 twoFingerDragXStart = e.GetCurrentPoint(canvas).Position.X;
+                prevPlaybackRate = mediaPlayer.PlaybackRate;
+                mediaPlayer.PlaybackRate = 0.0;
             }
             else if (numActiveContacts == 1 && prevNumActiveContacts < 2)
             {
@@ -987,8 +620,11 @@ namespace ReplayHelper
             }
             else if (numActiveContacts == 2)
             {
+                scrubMode = true;
                 mediaPlayerScrubStartTime = mediaPlayer.Position;
                 twoFingerDragXStart = e.GetCurrentPoint(canvas).Position.X;
+                prevPlaybackRate = mediaPlayer.PlaybackRate;
+                mediaPlayer.PlaybackRate = 0.0;
             }
 
         }
@@ -1010,6 +646,10 @@ namespace ReplayHelper
                     PlayPauseToggle();
                 }
                 else {
+                    if (scrubMode)
+                    {
+                        mediaPlayer.PlaybackRate = prevPlaybackRate;
+                    }
                     shapeOnCanvas = false;
                     manipulating = false;
                 }
@@ -1030,7 +670,7 @@ namespace ReplayHelper
                     //twoFingerDragXStart = e.GetCurrentPoint(canvas).Position.X;
                     double regionPercentage = (e.GetCurrentPoint(canvas).Position.X - twoFingerDragXStart) / canvas.ActualWidth;
                     double millisecondsToScrub = mediaPlayer.NaturalDuration.TimeSpan.TotalMilliseconds * regionPercentage * mediaPlayer.PlaybackRate;
-                    //Debug.WriteLine("Scrubbing (milliseconds): " + millisecondsToScrub);
+                    Debug.WriteLine("Scrubbing (milliseconds): " + millisecondsToScrub);
                     mediaPlayer.Position = mediaPlayerScrubStartTime + (TimeSpan.FromMilliseconds(millisecondsToScrub));
                 }
                 
@@ -1294,7 +934,7 @@ namespace ReplayHelper
             }
 
             var query = CommonFileQuery.DefaultQuery;
-            var queryOptions = new QueryOptions(query, new[] { ".wmv", ".mp4", ".mp3", ".wma" });
+            var queryOptions = new QueryOptions(query, new[] { ".wmv", ".mp4", ".mp3", ".wma", ".mov" });
             queryOptions.FolderDepth = FolderDepth.Shallow;
             var queryResult = currentFolder.CreateFileQueryWithOptions(queryOptions);
             var storageFiles = await queryResult.GetFilesAsync();
