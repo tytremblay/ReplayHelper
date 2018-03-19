@@ -27,6 +27,7 @@ using Windows.UI.Popups;
 using Windows.UI.Xaml.Shapes;
 using Windows.UI.ViewManagement;
 using Windows.Storage.Search;
+using Windows.Gaming.Input;
 using Windows.UI.Input;
 using System.Collections.Generic;
 // The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
@@ -87,6 +88,8 @@ namespace ReplayHelper
         private bool scrubMode = false;
         private bool timeAdjustMode = false;
 
+        public static List<Gamepad> Gamepads = new List<Gamepad>();
+
         public MainPage()
         {
             this.InitializeComponent();
@@ -106,7 +109,20 @@ namespace ReplayHelper
             stopWatch.Interval = new TimeSpan(0, 0, 0, 0, 100);
             stopWatch.Tick += StopWatch_Tick;
 
+            Gamepad.GamepadAdded += new EventHandler<Gamepad>(OnGamepadAdded);
+
+            Debug.WriteLine("There are " + Gamepads.Count + "gamepads");
+
             ApplicationView.GetForCurrentView().TryEnterFullScreenMode();
+        }
+
+        private void OnGamepadAdded(object sender, Gamepad gp)
+        {
+            if (!Gamepads.Contains(gp))
+            {
+                Debug.WriteLine("Adding Gamepad");
+                Gamepads.Add(gp);
+            }
         }
 
         private void CoreWindow_KeyUp(CoreWindow sender, KeyEventArgs args)
