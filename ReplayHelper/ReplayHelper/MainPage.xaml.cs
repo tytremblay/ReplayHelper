@@ -28,6 +28,7 @@ using Windows.UI.Xaml.Shapes;
 using Windows.UI.ViewManagement;
 using Windows.Storage.Search;
 using Windows.Gaming.Input;
+using Windows.Devices.HumanInterfaceDevice;
 using Windows.UI.Input;
 using System.Collections.Generic;
 // The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
