@@ -34,6 +34,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.11.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="SlimDX, Version=4.0.13.43, Culture=neutral, PublicKeyToken=b1b0c32fd1ffe4f9, processorArchitecture=x86">
       <HintPath>..\packages\SlimDX.4.0.13.44\lib\NET40\SlimDX.dll</HintPath>
     </Reference>
@@ -71,8 +74,13 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="PaletteGear\PaletteGear.cs" />
+    <Compile Include="PaletteGear\PaletteData.cs" />
+    <Compile Include="PaletteGear\PaletteDataContainer.cs" />
+    <Compile Include="PaletteGear\PaletteDataEventArgs.cs" />
+    <Compile Include="PaletteGear\PaletteDial.cs" />
+    <Compile Include="PaletteGear\PaletteBase.cs" />
     <Compile Include="PaletteGear\PaletteButton.cs" />
+    <Compile Include="PaletteGear\PaletteSlider.cs" />
     <Compile Include="PaletteGear\ReplayPalette.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>

@@ -1,20 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using SlimDX.DirectInput;
-using SlimDX.RawInput;
-using System.Windows.Threading;
 using ReplayHelper2.PaletteGear;
 
 namespace ReplayHelper2
@@ -24,97 +9,109 @@ namespace ReplayHelper2
     /// </summary>
     public partial class MainWindow : Window
     {
-        DispatcherTimer timer = new DispatcherTimer();
-        Joystick[] joysticks;
         ReplayPalette replayPalette = null;
-        int lastScrubVal = 0;
-        double lastPlaybackSpeed = 1.0;
         private bool isPlaying = false;
 
         public MainWindow()
         {
             InitializeComponent();
-            joysticks = GetJoysticks();
-            replayPalette = new ReplayPalette(joysticks[0]);
-            timer.Tick += timer_Tick;
-            timer.Interval = TimeSpan.FromMilliseconds(5);
-            timer.Start();
+            replayPalette = new ReplayPalette("COM3");
+            replayPalette.ScrubDial.Updated += HandleScrub;
+            replayPalette.SpeedSlider.Updated += HandleSpeed;
+            replayPalette.OpenButton.Updated += HandleOpenButton;
+            replayPalette.ClearButton.Updated += HandleClearButton;
         }
 
-        private void timer_Tick(object sender, EventArgs e)
-        {            
-            handleReplayPallete(replayPalette);
-        }
-
-        private void handleReplayPallete(ReplayPalette rp)
+        private void HandleClearButton(object sender, EventArgs e)
         {
-            rp.Refresh();
-            Console.WriteLine(rp.ToString());
-            if (rp.OpenButton.JustPressed)
+            this.Dispatcher.Invoke(() =>
             {
-                openLatestVideo();
-            }
+                ClearDrawings();
+            });
+        }
 
-            if (rp.PlayPauseButton.JustPressed)
+        private void HandleOpenButton(object sender, EventArgs e)
+        {
+            this.Dispatcher.Invoke(() =>
             {
-                if (isPlaying)
+                if (replayPalette.OpenButton.JustPressed)
                 {
-                    MediaPlayer.Pause();
-                    isPlaying = false;
+                    OpenLatestVideo();
+                }
+            });
+        }
+
+        private void HandleSpeed(object sender, EventArgs e)
+        {
+            this.Dispatcher.Invoke(() =>
+            {
+                MediaPlayer.SpeedRatio = replayPalette.getPlaybackSpeed();
+                if (MediaPlayer.SpeedRatio == 1.0)
+                {
+                    MediaPlayer.IsMuted = false;
                 }
                 else
                 {
-                    MediaPlayer.Play();
-                    isPlaying = true;
+                    MediaPlayer.IsMuted = true;
                 }
-                
-            }
-
-            if (rp.playbackSpeed != lastPlaybackSpeed)
-            {
-                MediaPlayer.SpeedRatio = rp.playbackSpeed;
-                lastPlaybackSpeed = rp.playbackSpeed;
-            }
+            });
         }
 
-        public Joystick[] GetJoysticks()
+        private void HandleScrub(object sender, EventArgs e)
         {
-            DirectInput input = new DirectInput();
-            Joystick stick;
-            List<Joystick> sticks = new List<Joystick>();
-
-            foreach( DeviceInstance device in input.GetDevices(DeviceClass.GameController, DeviceEnumerationFlags.AttachedOnly))
+            this.Dispatcher.Invoke(() =>
             {
-                try
+                double scrubSpeed = replayPalette.ScrubDial.Speed * .25;
+                if (scrubSpeed != 0.0)
                 {
-                    stick = new Joystick(input, device.InstanceGuid);
-                    stick.Acquire();
-
-                    IList<DeviceObjectInstance> objects = stick.GetObjects();
-
-                    foreach(DeviceObjectInstance deviceObject in objects)
-                    {
-                        if (deviceObject.ObjectType == ObjectDeviceType.AbsoluteAxis)
-                        {
-                            stick.GetObjectPropertiesById((int)deviceObject.ObjectType).SetRange(-100, 100);
-                        }
-                        else if (deviceObject.ObjectType == ObjectDeviceType.RelativeAxis)
-                        {
-                            stick.GetObjectPropertiesById((int)deviceObject.ObjectType).SetRange(-10000, 10000);
-                        }
-                    }
-                    sticks.Add(stick);
+                    Pause(true);
+                    MediaPlayer.Position += TimeSpan.FromSeconds(scrubSpeed);
                 }
-                catch(DirectInputException ex)
+                if (replayPalette.ScrubDial.Button.JustPressed)
                 {
-                    Console.WriteLine(ex.Message);
+                    TogglePlayPause(true);
                 }
-            }
-
-            return sticks.ToArray();
+            });
         }
 
-        private void openLatestVideo()
+        private void Pause(bool mute)
+        {
+            isPlaying = false;
+            if (mute)
+            {
+                MediaPlayer.IsMuted = true;
+            }
+            MediaPlayer.Pause();
+        }
+
+        private void Play(bool unMute)
+        {
+            isPlaying = true;
+            if (unMute)
+            {
+                MediaPlayer.IsMuted = false;
+            }
+            MediaPlayer.Play();
+        }
+
+        private void TogglePlayPause(bool toggleMute)
+        {
+            if (isPlaying)
+            {
+                Pause(toggleMute);
+            }
+            else
+            {
+                Play(toggleMute);
+            }
+        }
+
+        private void ClearDrawings()
+        {
+
+        }
+
+        private void OpenLatestVideo()
         {
             // Configure open file dialog box 
             Microsoft.Win32.OpenFileDialog dialog = new Microsoft.Win32.OpenFileDialog();

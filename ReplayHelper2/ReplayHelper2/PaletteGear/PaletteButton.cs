@@ -8,6 +8,8 @@ namespace ReplayHelper2.PaletteGear
 {
     public class PaletteButton
     {
+        public event EventHandler Updated;
+
         private bool WasPressed = false;
 
         public bool IsPressed { get; private set; } = false;
@@ -36,6 +38,12 @@ namespace ReplayHelper2.PaletteGear
         {
             WasPressed = IsPressed;
             IsPressed = pressed;
+            Updated?.Invoke(this, new EventArgs());
+        }
+
+        public void Update(int[] moduleData)
+        {
+            Update(moduleData[0] == 1);
         }
     }
 }

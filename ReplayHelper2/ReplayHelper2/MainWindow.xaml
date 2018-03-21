@@ -5,8 +5,31 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ReplayHelper2"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="RSN Instant Replay"
+        WindowStyle="None"
+        WindowState="Maximized"
+        ManipulationStarting="Window_ManipulationStarting"
+        ManipulationDelta="Window_ManipulationDelta"
+        ManipulationInertiaStarting="Window_InertiaStarting">
+
+    <Window.Resources>
+
+        <!--The movement, rotation, and size of the Rectangle is 
+        specified by its RenderTransform.-->
+        <MatrixTransform x:Key="InitialMatrixTransform">
+            <MatrixTransform.Matrix>
+                <Matrix OffsetX="200" OffsetY="200"/>
+            </MatrixTransform.Matrix>
+        </MatrixTransform>
+
+    </Window.Resources>
     <Grid>
-        <MediaElement x:Name="MediaPlayer" Grid.RowSpan="1" LoadedBehavior="Manual"/>
+        <MediaElement x:Name="MediaPlayer" Grid.RowSpan="1" LoadedBehavior="Manual" ScrubbingEnabled="True"/>
+        <Canvas>
+            <Rectangle Fill="Red" Name="manRect"
+                 Width="200" Height="200" 
+                 RenderTransform="{StaticResource InitialMatrixTransform}"
+                 IsManipulationEnabled="true" />
+        </Canvas>
     </Grid>
 </Window>
