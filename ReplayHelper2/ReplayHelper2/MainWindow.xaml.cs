@@ -78,9 +78,9 @@ namespace ReplayHelper2
             {
                 if (fileOpen)
                 {
-                    double videoSeconds = MediaPlayer.NaturalDuration.TimeSpan.TotalSeconds;
-                    double scaleFactor = 720.0;
-                    double scrubSpeed = replayPalette.ScrubDial.Speed * (videoSeconds/scaleFactor);
+                    //double videoSeconds = MediaPlayer.NaturalDuration.TimeSpan.TotalSeconds;
+                    //double scaleFactor = 720.0;
+                    double scrubSpeed = replayPalette.ScrubDial.Speed * MediaPlayer.SpeedRatio; // * (videoSeconds/scaleFactor);
                     if (scrubSpeed != 0.0)
                     {
                         if (isPlaying)
@@ -139,8 +139,9 @@ namespace ReplayHelper2
 
         private void OpenLatestVideo()
         {
-
-            DirectoryInfo replayDirectory = new DirectoryInfo(@"C:\\ReplayFiles\OnStage");
+            var directory = @"C:\Users\Ty\Desktop\replayTest";
+            //var directory = @"C:\\ReplayFiles\OnStage";
+            DirectoryInfo replayDirectory = new DirectoryInfo(directory);
 
             var files = replayDirectory.GetFiles().OrderByDescending(p => p.CreationTime).ToList();
             FileInfo replayFile = files.First();
