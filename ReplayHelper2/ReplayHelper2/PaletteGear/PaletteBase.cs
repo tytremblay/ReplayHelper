@@ -18,7 +18,7 @@ namespace ReplayHelper2.PaletteGear
         {
             _port = new SerialPort("COM3", 9600, Parity.None, 8, StopBits.One);
             _port.DataReceived += new SerialDataReceivedEventHandler(port_DataReceived);
-            //_port.Open();
+            _port.Open();
         }
         
         private void port_DataReceived(object sender, SerialDataReceivedEventArgs e)
@@ -27,6 +27,7 @@ namespace ReplayHelper2.PaletteGear
             string data = _port.ReadExisting();
             try
             {
+                Console.WriteLine(data);
                 PaletteDataContainer paletteData = JsonConvert.DeserializeObject<PaletteDataContainer>(data);
                 PaletteDataEventArgs paletteDataEventArgs = new PaletteDataEventArgs(paletteData.@in[0]);
                 DataRecieved?.Invoke(this, paletteDataEventArgs);
