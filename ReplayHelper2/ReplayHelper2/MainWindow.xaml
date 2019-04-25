@@ -7,7 +7,7 @@
         mc:Ignorable="d"
         Title="RSN Instant Replay"
         WindowStyle="None"
-        WindowState="Maximized">
+        WindowState="Maximized" KeyDown="Grid_KeyDown">
 
     <Window.Resources>
     </Window.Resources>
@@ -18,7 +18,7 @@
         </Grid.RowDefinitions>
         <MediaElement x:Name="MediaPlayer" Grid.RowSpan="2" LoadedBehavior="Manual" ScrubbingEnabled="True"/>
         <TextBlock x:Name="TelePropmtBox" Grid.Row="2" FontSize="70" Foreground="#FFCC00" FontFamily="Consolas" HorizontalAlignment="Center" TextWrapping="WrapWithOverflow" Margin="10 0"></TextBlock>
-        <TextBlock x:Name="ReplayLabel" Grid.Row="2" Width="250" Height="40" FontSize="30" FontFamily="Futura LT" Visibility="Hidden" FontWeight="Bold" TextAlignment="Center" Foreground="Black" Background="#FFCC00" VerticalAlignment="Bottom" Text="INSTANT REPLAY"/>
+        <TextBlock x:Name="ReplayLabel" Grid.Row="0" Width="250" Height="40" FontSize="30" FontFamily="Futura LT" Visibility="Hidden" FontWeight="Bold" TextAlignment="Center" Foreground="Black" Background="#FFCC00" VerticalAlignment="Top" Text="INSTANT REPLAY"/>
         <InkCanvas Name="drawingCanvas" Grid.RowSpan="2" Background="Transparent"></InkCanvas>
     </Grid>
 </Window>

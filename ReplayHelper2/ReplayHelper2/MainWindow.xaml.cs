@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using AudioSwitcher.AudioApi.CoreAudio;
 using ReplayHelper2.PaletteGear;
 
 namespace ReplayHelper2
@@ -21,21 +22,24 @@ namespace ReplayHelper2
         private bool isPlaying = false;
         private bool fileOpen = false;
         private double scrubCount = 0.0;
+        private CoreAudioDevice defaultPlaybackDevice;
 
         public MainWindow()
         {
             InitializeComponent();
+            /*
             replayPalette = new ReplayPalette("COM3");
             replayPalette.ScrubDial.Updated += HandleScrub;
             replayPalette.SpeedSlider.Updated += HandleSpeed;
             replayPalette.OpenButton.Updated += HandleOpenButton;
             replayPalette.ClearButton.Updated += HandleClearButton;
-
+            */
             drawingCanvas.DefaultDrawingAttributes.Color = (Color)ColorConverter.ConvertFromString("#FFCC00");
             drawingCanvas.DefaultDrawingAttributes.Height = 10;
             drawingCanvas.DefaultDrawingAttributes.Width = 10;
 
-            CreateServer();
+
+            defaultPlaybackDevice = new CoreAudioController().DefaultPlaybackDevice;
         }
 
         private void HandleClearButton(object sender, EventArgs e)
@@ -100,14 +104,33 @@ namespace ReplayHelper2
             });
         }
 
+        private void CheckSpeed()
+        {
+            double sliderVal = defaultPlaybackDevice.Volume;
+            if (sliderVal < 33)
+            {
+                MediaPlayer.SpeedRatio = 0.5;
+            }
+            else if (sliderVal > 66)
+            {
+                MediaPlayer.SpeedRatio = 2.0;
+            }
+            else
+            {
+                MediaPlayer.SpeedRatio = 1.0;
+            }
+        }
+
         private void Pause()
         {
+            CheckSpeed();
             isPlaying = false;
             MediaPlayer.Pause();
         }
 
         private void Play()
         {
+            CheckSpeed();
             isPlaying = true;
             MediaPlayer.Play();
         }
@@ -147,30 +170,10 @@ namespace ReplayHelper2
             FileInfo replayFile = files.First();
             MediaPlayer.Source = new Uri(replayFile.FullName);
             MediaPlayer.Pause();
-            MediaPlayer.IsMuted = true;
             MediaPlayer.Position = TimeSpan.FromSeconds(0.5);
             fileOpen = true;
             ClearDrawings();
             ReplayLabel.Visibility = Visibility.Visible;
-            /*
-            // Configure open file dialog box 
-            Microsoft.Win32.OpenFileDialog dialog = new Microsoft.Win32.OpenFileDialog();
-            dialog.FileName = "Videos"; // Default file name 
-            dialog.DefaultExt = ".mov"; // Default file extension 
-            dialog.Filter = "MOV file (.mov)|*.mov"; // Filter files by extension  
-
-            // Show open file dialog box 
-            Nullable<bool> result = dialog.ShowDialog();
-
-            // Process open file dialog box results  
-            if (result == true)
-            {
-                // Open document  
-                MediaPlayer.Source = new Uri(dialog.FileName);
-                MediaPlayer.Pause();
-                MediaPlayer.Position = TimeSpan.FromSeconds(0.5);
-            }
-            */
         }
 
         private void CreateServer()
@@ -203,6 +206,55 @@ namespace ReplayHelper2
 
             listeningThread.IsBackground = true;
             listeningThread.Start();
+        }
+
+        private void Grid_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Space && e.KeyboardDevice.Modifiers == ModifierKeys.Control)
+            {
+                this.Dispatcher.Invoke(() =>
+                {
+                        if (!this.fileOpen)
+                        {
+                            OpenLatestVideo();
+                        }
+                        else
+                        {
+                            CloseVideo();
+                        }
+                });
+            }
+
+            if (e.Key == Key.P)
+            {
+                this.Dispatcher.Invoke(() =>
+                {
+                    TogglePlayPause();
+                });
+            }
+
+            if (e.Key == Key.C)
+            {
+                this.Dispatcher.Invoke(() =>
+                {
+                    ClearDrawings();
+                });
+            }
+
+            if (e.Key == Key.Right || e.Key == Key.Left)
+            {
+                TimeSpan scrubSpeed = TimeSpan.FromSeconds(2.0 * MediaPlayer.SpeedRatio);
+                if (e.Key == Key.Left)
+                {
+
+                    MediaPlayer.Position -= scrubSpeed;
+                }
+                else
+                {
+                    MediaPlayer.Position += scrubSpeed;
+                }
+                
+            }
         }
     }
 }
